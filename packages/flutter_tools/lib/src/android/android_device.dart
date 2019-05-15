@@ -277,7 +277,7 @@ class AndroidDevice extends Device {
     if (!await _checkForSupportedAdbVersion() || !await _checkForSupportedAndroidVersion())
       return false;
 
-    final Status status = logger.startProgress('Installing ${fs.path.relative(apk.file.path)}...', timeout: kSlowOperation);
+    final Status status = logger.startProgress('Installing ${fs.path.relative(apk.file.path)}...', timeout: timeoutConfiguration.slowOperation);
     final RunResult installResult = await runAsync(adbCommandForDevice(<String>['install', '-t', '-r', apk.file.path]));
     status.stop();
     // Some versions of adb exit with exit code 0 even on failure :(
@@ -352,7 +352,6 @@ class AndroidDevice extends Device {
     DebuggingOptions debuggingOptions,
     Map<String, dynamic> platformArgs,
     bool prebuiltApplication = false,
-    bool applicationNeedsRebuild = false,
     bool usesTerminalUi = true,
     bool ipv6 = false,
   }) async {
@@ -430,6 +429,8 @@ class AndroidDevice extends Device {
       cmd.addAll(<String>['--ez', 'trace-skia', 'true']);
     if (debuggingOptions.traceSystrace)
       cmd.addAll(<String>['--ez', 'trace-systrace', 'true']);
+    if (debuggingOptions.dumpSkpOnShaderCompilation)
+      cmd.addAll(<String>['--ez', 'dump-skp-on-shader-compilation', 'true']);
     if (debuggingOptions.debuggingEnabled) {
       if (debuggingOptions.buildInfo.isDebug) {
         cmd.addAll(<String>['--ez', 'enable-checked-mode', 'true']);
@@ -437,10 +438,12 @@ class AndroidDevice extends Device {
       }
       if (debuggingOptions.startPaused)
         cmd.addAll(<String>['--ez', 'start-paused', 'true']);
+      if (debuggingOptions.disableServiceAuthCodes)
+        cmd.addAll(<String>['--ez', 'disable-service-auth-codes', 'true']);
       if (debuggingOptions.useTestFonts)
         cmd.addAll(<String>['--ez', 'use-test-fonts', 'true']);
       if (debuggingOptions.verboseSystemLogs) {
-        cmd.addAll(<String>['--ez', '--verbose-logging', 'true']);
+        cmd.addAll(<String>['--ez', 'verbose-logging', 'true']);
       }
     }
     cmd.add(apk.launchActivity);
@@ -790,7 +793,7 @@ class _AdbLogReader extends DeviceLogReader {
       }
       _acceptedLastLine = false;
     } else if (line == '--------- beginning of system' ||
-               line == '--------- beginning of main' ) {
+               line == '--------- beginning of main') {
       // hide the ugly adb logcat log boundaries at the start
       _acceptedLastLine = false;
     } else {
@@ -873,7 +876,20 @@ class _AndroidDevicePortForwarder extends DevicePortForwarder {
         process.throwException('adb did not report forwarded port');
       hostPort = int.tryParse(process.stdout) ?? (throw 'adb returned invalid port number:\n${process.stdout}');
     } else {
-      if (process.stdout.isNotEmpty)
+      // stdout may be empty or the port we asked it to forward, though it's
+      // not documented (or obvious) what triggers each case.
+      //
+      // Observations are:
+      //   - On MacOS it's always empty when Flutter spawns the process, but
+      //   - On MacOS it prints the port number when run from the terminal, unless
+      //     the port is already forwarded, when it also prints nothing.
+      //   - On ChromeOS, the port appears to be printed even when Flutter spawns
+      //     the process
+      //
+      // To cover all cases, we accept the output being either empty or exactly
+      // the port number, but treat any other output as probably being an error
+      // message.
+      if (process.stdout.isNotEmpty && process.stdout.trim() != '$hostPort')
         process.throwException('adb returned error:\n${process.stdout}');
     }
 

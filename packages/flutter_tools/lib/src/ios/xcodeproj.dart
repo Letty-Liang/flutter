@@ -23,7 +23,8 @@ final RegExp _settingExpr = RegExp(r'(\w+)\s*=\s*(.*)$');
 final RegExp _varExpr = RegExp(r'\$\(([^)]*)\)');
 
 String flutterFrameworkDir(BuildMode mode) {
-  return fs.path.normalize(fs.path.dirname(artifacts.getArtifactPath(Artifact.flutterFramework, TargetPlatform.ios, mode)));
+  return fs.path.normalize(fs.path.dirname(artifacts.getArtifactPath(
+      Artifact.flutterFramework, platform: TargetPlatform.ios, mode: mode)));
 }
 
 /// Writes or rewrites Xcode property files with the specified information.
@@ -161,11 +162,11 @@ class XcodeProjectInterpreter {
     return parseXcodeBuildSettings(out);
   }
 
-  XcodeProjectInfo getInfo(String projectPath) {
-    final String out = runCheckedSync(<String>[
+  Future<XcodeProjectInfo> getInfo(String projectPath) async {
+    final RunResult result = await runCheckedAsync(<String>[
       _executable, '-list',
     ], workingDirectory: projectPath);
-    return XcodeProjectInfo.fromXcodeBuildOutput(out);
+    return XcodeProjectInfo.fromXcodeBuildOutput(result.toString());
   }
 }
 

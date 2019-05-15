@@ -27,6 +27,7 @@ Future<int> runTests(
   List<String> plainNames = const <String>[],
   bool enableObservatory = false,
   bool startPaused = false,
+  bool disableServiceAuthCodes = false,
   bool ipv6 = false,
   bool machine = false,
   String precompiledDillPath,
@@ -35,7 +36,10 @@ Future<int> runTests(
   bool updateGoldens = false,
   TestWatcher watcher,
   @required int concurrency,
+  bool buildTestAssets = false,
   FlutterProject flutterProject,
+  String icudtlPath,
+  Directory coverageDirectory,
 }) async {
   // Compute the command-line arguments for package:test.
   final List<String> testArgs = <String>[];
@@ -76,13 +80,16 @@ Future<int> runTests(
     enableObservatory: enableObservatory,
     machine: machine,
     startPaused: startPaused,
+    disableServiceAuthCodes: disableServiceAuthCodes,
     serverType: serverType,
     precompiledDillPath: precompiledDillPath,
     precompiledDillFiles: precompiledDillFiles,
     trackWidgetCreation: trackWidgetCreation,
     updateGoldens: updateGoldens,
+    buildTestAssets: buildTestAssets,
     projectRootDirectory: fs.currentDirectory.uri,
     flutterProject: flutterProject,
+    icudtlPath: icudtlPath,
   );
 
   // Make the global packages path absolute.

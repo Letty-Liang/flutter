@@ -96,7 +96,6 @@ class FlutterTesterDevice extends Device {
     @required DebuggingOptions debuggingOptions,
     Map<String, dynamic> platformArgs,
     bool prebuiltApplication = false,
-    bool applicationNeedsRebuild = false,
     bool usesTerminalUi = true,
     bool ipv6 = false,
   }) async {
@@ -121,6 +120,8 @@ class FlutterTesterDevice extends Device {
     if (debuggingOptions.debuggingEnabled) {
       if (debuggingOptions.startPaused)
         command.add('--start-paused');
+      if (debuggingOptions.disableServiceAuthCodes)
+        command.add('--disable-service-auth-codes');
       if (debuggingOptions.hasObservatoryPort)
         command.add('--observatory-port=${debuggingOptions.observatoryPort}');
     }

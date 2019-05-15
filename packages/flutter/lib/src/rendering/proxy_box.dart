@@ -1571,12 +1571,8 @@ abstract class _RenderPhysicalModelBase<T> extends _RenderCustomClip<T> {
     markNeedsPaint();
   }
 
-  static final Paint _transparentPaint = Paint()..color = const Color(0x00000000);
-
-  // On Fuchsia, the system compositor is responsible for drawing shadows
-  // for physical model layers with non-zero elevation.
   @override
-  bool get alwaysNeedsCompositing => _elevation != 0.0 && defaultTargetPlatform == TargetPlatform.fuchsia;
+  bool get alwaysNeedsCompositing => true;
 
   @override
   void describeSemanticsConfiguration(SemanticsConfiguration config) {
@@ -1706,37 +1702,18 @@ class RenderPhysicalModel extends _RenderPhysicalModelBase<RRect> {
         }
         return true;
       }());
-      if (needsCompositing) {
-        final PhysicalModelLayer physicalModel = PhysicalModelLayer(
-          clipPath: offsetRRectAsPath,
-          clipBehavior: clipBehavior,
-          elevation: paintShadows ? elevation : 0.0,
-          color: color,
-          shadowColor: shadowColor,
-        );
-        context.pushLayer(physicalModel, super.paint, offset, childPaintBounds: offsetBounds);
-      } else {
-        final Canvas canvas = context.canvas;
-        if (elevation != 0.0 && paintShadows) {
-          // The drawShadow call doesn't add the region of the shadow to the
-          // picture's bounds, so we draw a hardcoded amount of extra space to
-          // account for the maximum potential area of the shadow.
-          // TODO(jsimmons): remove this when Skia does it for us.
-          canvas.drawRect(
-            offsetBounds.inflate(20.0),
-            _RenderPhysicalModelBase._transparentPaint,
-          );
-          canvas.drawShadow(
-            offsetRRectAsPath,
-            shadowColor,
-            elevation,
-            color.alpha != 0xFF,
-          );
-        }
-        canvas.drawRRect(offsetRRect, Paint()..color = color);
-        context.clipRRectAndPaint(offsetRRect, clipBehavior, offsetBounds, () => super.paint(context, offset));
-        assert(context.canvas == canvas, 'canvas changed even though needsCompositing was false');
-      }
+      final PhysicalModelLayer physicalModel = PhysicalModelLayer(
+        clipPath: offsetRRectAsPath,
+        clipBehavior: clipBehavior,
+        elevation: paintShadows ? elevation : 0.0,
+        color: color,
+        shadowColor: shadowColor,
+      );
+      assert(() {
+        physicalModel.debugCreator = debugCreator;
+        return true;
+      }());
+      context.pushLayer(physicalModel, super.paint, offset, childPaintBounds: offsetBounds);
     }
   }
 
@@ -1819,37 +1796,18 @@ class RenderPhysicalShape extends _RenderPhysicalModelBase<Path> {
         }
         return true;
       }());
-      if (needsCompositing) {
-        final PhysicalModelLayer physicalModel = PhysicalModelLayer(
-          clipPath: offsetPath,
-          clipBehavior: clipBehavior,
-          elevation: paintShadows ? elevation : 0.0,
-          color: color,
-          shadowColor: shadowColor,
-        );
-        context.pushLayer(physicalModel, super.paint, offset, childPaintBounds: offsetBounds);
-      } else {
-        final Canvas canvas = context.canvas;
-        if (elevation != 0.0 && paintShadows) {
-          // The drawShadow call doesn't add the region of the shadow to the
-          // picture's bounds, so we draw a hardcoded amount of extra space to
-          // account for the maximum potential area of the shadow.
-          // TODO(jsimmons): remove this when Skia does it for us.
-          canvas.drawRect(
-            offsetBounds.inflate(20.0),
-            _RenderPhysicalModelBase._transparentPaint,
-          );
-          canvas.drawShadow(
-            offsetPath,
-            shadowColor,
-            elevation,
-            color.alpha != 0xFF,
-          );
-        }
-        canvas.drawPath(offsetPath, Paint()..color = color..style = PaintingStyle.fill);
-        context.clipPathAndPaint(offsetPath, clipBehavior, offsetBounds, () => super.paint(context, offset));
-        assert(context.canvas == canvas, 'canvas changed even though needsCompositing was false');
-      }
+      final PhysicalModelLayer physicalModel = PhysicalModelLayer(
+        clipPath: offsetPath,
+        clipBehavior: clipBehavior,
+        elevation: paintShadows ? elevation : 0.0,
+        color: color,
+        shadowColor: shadowColor,
+      );
+      assert(() {
+        physicalModel.debugCreator = debugCreator;
+        return true;
+      }());
+      context.pushLayer(physicalModel, super.paint, offset, childPaintBounds: offsetBounds);
     }
   }
 
@@ -2517,10 +2475,10 @@ class RenderPointerListener extends RenderProxyBoxWithHitTestBehavior {
     this.onPointerSignal,
     HitTestBehavior behavior = HitTestBehavior.deferToChild,
     RenderBox child,
-  })  : _onPointerEnter = onPointerEnter,
-        _onPointerHover = onPointerHover,
-        _onPointerExit = onPointerExit,
-        super(behavior: behavior, child: child) {
+  }) : _onPointerEnter = onPointerEnter,
+       _onPointerHover = onPointerHover,
+       _onPointerExit = onPointerExit,
+       super(behavior: behavior, child: child) {
     if (_onPointerEnter != null || _onPointerHover != null || _onPointerExit != null) {
       _hoverAnnotation = MouseTrackerAnnotation(
         onEnter: _onPointerEnter,
@@ -2585,7 +2543,7 @@ class RenderPointerListener extends RenderProxyBoxWithHitTestBehavior {
   /// no longer directed towards this receiver.
   PointerCancelEventListener onPointerCancel;
 
-  /// Called when a pointer signal occures over this object.
+  /// Called when a pointer signal occurs over this object.
   PointerSignalEventListener onPointerSignal;
 
   // Object used for annotation of the layer used for hover hit detection.
@@ -2599,6 +2557,8 @@ class RenderPointerListener extends RenderProxyBoxWithHitTestBehavior {
   MouseTrackerAnnotation get hoverAnnotation => _hoverAnnotation;
 
   void _updateAnnotations() {
+    assert(_onPointerEnter != _hoverAnnotation.onEnter || _onPointerHover != _hoverAnnotation.onHover || _onPointerExit != _hoverAnnotation.onExit,
+    "Shouldn't call _updateAnnotations if nothing has changed.");
     if (_hoverAnnotation != null && attached) {
       RendererBinding.instance.mouseTracker.detachAnnotation(_hoverAnnotation);
     }
@@ -2614,6 +2574,9 @@ class RenderPointerListener extends RenderProxyBoxWithHitTestBehavior {
     } else {
       _hoverAnnotation = null;
     }
+    // Needs to paint in any case, in order to insert/remove the annotation
+    // layer associated with the updated _hoverAnnotation.
+    markNeedsPaint();
   }
 
   @override

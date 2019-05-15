@@ -297,7 +297,6 @@ class IOSSimulator extends Device {
     DebuggingOptions debuggingOptions,
     Map<String, dynamic> platformArgs,
     bool prebuiltApplication = false,
-    bool applicationNeedsRebuild = false,
     bool usesTerminalUi = true,
     bool ipv6 = false,
   }) async {
@@ -326,6 +325,8 @@ class IOSSimulator extends Device {
         ]);
       if (debuggingOptions.startPaused)
         args.add('--start-paused');
+      if (debuggingOptions.disableServiceAuthCodes)
+        args.add('--disable-service-auth-codes');
       if (debuggingOptions.skiaDeterministicRendering)
         args.add('--skia-deterministic-rendering');
       if (debuggingOptions.useTestFonts)

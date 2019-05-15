@@ -235,7 +235,6 @@ class IOSDevice extends Device {
     DebuggingOptions debuggingOptions,
     Map<String, dynamic> platformArgs,
     bool prebuiltApplication = false,
-    bool applicationNeedsRebuild = false,
     bool usesTerminalUi = true,
     bool ipv6 = false,
   }) async {
@@ -280,6 +279,9 @@ class IOSDevice extends Device {
     if (debuggingOptions.startPaused)
       launchArguments.add('--start-paused');
 
+    if (debuggingOptions.disableServiceAuthCodes)
+      launchArguments.add('--disable-service-auth-codes');
+
     if (debuggingOptions.useTestFonts)
       launchArguments.add('--use-test-fonts');
 
@@ -297,6 +299,9 @@ class IOSDevice extends Device {
     if (debuggingOptions.traceSkia)
       launchArguments.add('--trace-skia');
 
+    if (debuggingOptions.dumpSkpOnShaderCompilation)
+      launchArguments.add('--dump-skp-on-shader-compilation');
+
     if (debuggingOptions.verboseSystemLogs) {
       launchArguments.add('--verbose-logging');
     }
@@ -307,7 +312,7 @@ class IOSDevice extends Device {
     int installationResult = -1;
     Uri localObservatoryUri;
 
-    final Status installStatus = logger.startProgress('Installing and launching...', timeout: kSlowOperation);
+    final Status installStatus = logger.startProgress('Installing and launching...', timeout: timeoutConfiguration.slowOperation);
 
     if (!debuggingOptions.debuggingEnabled) {
       // If debugging is not enabled, just launch the application and continue.
@@ -387,8 +392,7 @@ class IOSDevice extends Device {
   DevicePortForwarder get portForwarder => _portForwarder ??= _IOSDevicePortForwarder(this);
 
   @override
-  void clearLogs() {
-  }
+  void clearLogs() { }
 
   @override
   bool get supportsScreenshot => iMobileDevice.isInstalled;
@@ -430,7 +434,7 @@ String decodeSyslog(String line) {
   try {
     final List<int> bytes = utf8.encode(line);
     final List<int> out = <int>[];
-    for (int i = 0; i < bytes.length; ) {
+    for (int i = 0; i < bytes.length;) {
       if (bytes[i] != kBackslash || i > bytes.length - 4) {
         // Unmapped byte: copy as-is.
         out.add(bytes[i++]);

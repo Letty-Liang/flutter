@@ -83,15 +83,18 @@ void installHook({
   bool enableObservatory = false,
   bool machine = false,
   bool startPaused = false,
+  bool disableServiceAuthCodes = false,
   int port = 0,
   String precompiledDillPath,
   Map<String, String> precompiledDillFiles,
   bool trackWidgetCreation = false,
   bool updateGoldens = false,
+  bool buildTestAssets = false,
   int observatoryPort,
   InternetAddressType serverType = InternetAddressType.IPv4,
   Uri projectRootDirectory,
   FlutterProject flutterProject,
+  String icudtlPath,
 }) {
   assert(enableObservatory || (!startPaused && observatoryPort == null));
   hack.registerPlatformPlugin(
@@ -102,6 +105,7 @@ void installHook({
       machine: machine,
       enableObservatory: enableObservatory,
       startPaused: startPaused,
+      disableServiceAuthCodes: disableServiceAuthCodes,
       explicitObservatoryPort: observatoryPort,
       host: _kHosts[serverType],
       port: port,
@@ -109,8 +113,10 @@ void installHook({
       precompiledDillFiles: precompiledDillFiles,
       trackWidgetCreation: trackWidgetCreation,
       updateGoldens: updateGoldens,
+      buildTestAssets: buildTestAssets,
       projectRootDirectory: projectRootDirectory,
       flutterProject: flutterProject,
+      icudtlPath: icudtlPath,
     ),
   );
 }
@@ -270,11 +276,12 @@ class _Compiler {
     );
 
     Future<ResidentCompiler> createCompiler() async {
-      if (experimentalBuildEnabled && await flutterProject.hasBuilders) {
+      if (flutterProject.hasBuilders) {
         return CodeGeneratingResidentCompiler.create(
           flutterProject: flutterProject,
           trackWidgetCreation: trackWidgetCreation,
           compilerMessageConsumer: reportCompilerMessage,
+          initializeFromDill: testFilePath,
           // We already ran codegen once at the start, we only need to
           // configure builders.
           runCold: true,
@@ -310,7 +317,7 @@ class _Compiler {
           suppressOutput = false;
           final CompilerOutput compilerOutput = await compiler.recompile(
             request.path,
-            <String>[request.path],
+            <Uri>[Uri.parse(request.path)],
             outputPath: outputDill.path,
           );
           final String outputPath = compilerOutput?.outputFilename;
@@ -380,6 +387,7 @@ class _FlutterPlatform extends PlatformPlugin {
     this.enableObservatory,
     this.machine,
     this.startPaused,
+    this.disableServiceAuthCodes,
     this.explicitObservatoryPort,
     this.host,
     this.port,
@@ -387,8 +395,10 @@ class _FlutterPlatform extends PlatformPlugin {
     this.precompiledDillFiles,
     this.trackWidgetCreation,
     this.updateGoldens,
+    this.buildTestAssets,
     this.projectRootDirectory,
     this.flutterProject,
+    this.icudtlPath,
   }) : assert(shellPath != null);
 
   final String shellPath;
@@ -396,6 +406,7 @@ class _FlutterPlatform extends PlatformPlugin {
   final bool enableObservatory;
   final bool machine;
   final bool startPaused;
+  final bool disableServiceAuthCodes;
   final int explicitObservatoryPort;
   final InternetAddress host;
   final int port;
@@ -403,8 +414,10 @@ class _FlutterPlatform extends PlatformPlugin {
   final Map<String, String> precompiledDillFiles;
   final bool trackWidgetCreation;
   final bool updateGoldens;
+  final bool buildTestAssets;
   final Uri projectRootDirectory;
   final FlutterProject flutterProject;
+  final String icudtlPath;
 
   Directory fontsDirectory;
   _Compiler compiler;
@@ -576,6 +589,7 @@ class _FlutterPlatform extends PlatformPlugin {
         packages: PackageMap.globalPackagesPath,
         enableObservatory: enableObservatory,
         startPaused: startPaused,
+        disableServiceAuthCodes: disableServiceAuthCodes,
         observatoryPort: explicitObservatoryPort,
         serverPort: server.port,
       );
@@ -923,6 +937,7 @@ class _FlutterPlatform extends PlatformPlugin {
     String packages,
     bool enableObservatory = false,
     bool startPaused = false,
+    bool disableServiceAuthCodes = false,
     int observatoryPort,
     int serverPort,
   }) {
@@ -944,11 +959,18 @@ class _FlutterPlatform extends PlatformPlugin {
       if (startPaused) {
         command.add('--start-paused');
       }
+      if (disableServiceAuthCodes) {
+        command.add('--disable-service-auth-codes');
+      }
     } else {
       command.add('--disable-observatory');
     }
     if (host.type == InternetAddressType.IPv6) {
       command.add('--ipv6');
+    }
+
+    if (icudtlPath != null) {
+      command.add('--icu-data-file-path=$icudtlPath');
     }
 
     command.addAll(<String>[
@@ -968,6 +990,10 @@ class _FlutterPlatform extends PlatformPlugin {
       'FONTCONFIG_FILE': _fontConfigFile.path,
       'SERVER_PORT': serverPort.toString(),
     };
+    if (buildTestAssets) {
+      environment['UNIT_TEST_ASSETS'] = fs.path.join(
+        flutterProject.directory.path, 'build', 'unit_test_assets');
+    }
     return processManager.start(command, environment: environment);
   }
 
