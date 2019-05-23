@@ -597,7 +597,7 @@ class GitTagVersion {
   }
 
   static GitTagVersion parseMT(String version) {
-    final RegExp versionPattern = RegExp(r'^v([0-9]+)\.([0-9]+)\.([0-9]+)(?:-hotfix\.([0-9]+))?-([0-9]+)-g([a-f0-9]+)$');
+    final RegExp versionPattern = RegExp(r'^vMT([0-9]+)\.([0-9]+)\.([0-9]+)(?:-hotfix\.([0-9]+))?-([0-9]+)-g([a-f0-9]+)$');
     final List<String> parts = versionPattern.matchAsPrefix(version)?.groups(<int>[1, 2, 3, 4, 5, 6]);
     if (parts == null) {
       printTrace('Could not interpret results of "git describe": $version');
